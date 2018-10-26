@@ -3,6 +3,10 @@ name = "ww-subscription"
 version = "0.1.0"
 authors = ["Gustavo Aguiar <gugahoa@gmail.com>"]
 
+[lib]
+src = "src/lib.rs"
+
 [dependencies]
 diesel = { version = "1.0.0", features = ["postgres"] }
 dotenv = "0.9.0"
+rss = { version = "1.6.0", features = ["from_url"] }
