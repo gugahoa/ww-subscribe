@@ -30,10 +30,35 @@ fn telegram_bot(receiver: mpsc::UnboundedReceiver<(i64, Novel)>) {
         let bot = bot::RcBot::new(lp.handle(), &env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN env var not set"))
             .update_interval(200);
 
+        let conn = establish_connection();
+
         let handle = bot.new_cmd("/subscribe")
             .and_then(move |(bot, msg)| {
-                println!("{:?}", msg);
-                Ok(())
+                use ww_subscription::schema::subscriptions::dsl::*;
+
+                if msg.text.is_none() {
+                    return bot.message(msg.chat.id, "Expected text, found none".into()).send();
+                }
+
+                let text = msg.text.unwrap();
+
+                let result = diesel::insert_into(subscriptions)
+                .values(&NewSubscription {
+                    chat_id: msg.chat.id as i32,
+                    novel: &text
+                })
+                .execute(&conn);
+
+                match result {
+                    Ok(_) => {
+                        println!("Successfully inserted subscription from chat_id={} to novel={}", msg.chat.id, text);
+                        bot.message(msg.chat.id, "Success".into()).send()
+                    },
+                    Err(e) => {
+                        println!("Failed to insert subscription. err={:?}", e);
+                        bot.message(msg.chat.id, "Fail".into()).send()
+                    }
+                }
             });
 
         bot.register(handle);
