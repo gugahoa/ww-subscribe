@@ -22,8 +22,8 @@ pub struct NewSubscription<'a> {
 }
 
 #[derive(Queryable)]
-pub struct Subscription<'a> {
+pub struct Subscription {
     pub id: i32,
-    pub name: &'a str,
-    pub chat_id: i32
+    pub chat_id: i32,
+    pub novel: String
 }

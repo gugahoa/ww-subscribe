@@ -20,11 +20,9 @@ use futures::sync::mpsc;
 
 use tokio::prelude::*;
 use diesel::prelude::*;
-
-// import all available functions
 use telebot::functions::*;
 
-fn telegram_bot(receiver: mpsc::UnboundedReceiver<(i64, Novel)>) {
+fn telegram_bot(receiver: mpsc::UnboundedReceiver<(i32, String)>) {
     thread::spawn(move || {
         let mut lp = Core::new().unwrap();
         let bot = bot::RcBot::new(lp.handle(), &env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN env var not set"))
@@ -65,8 +63,8 @@ fn telegram_bot(receiver: mpsc::UnboundedReceiver<(i64, Novel)>) {
 
         let bot_clone = bot.clone();
         lp.handle().spawn(receiver
-            .and_then(move |(chat, novel): (i64, Novel)| {
-                bot_clone.message(chat, novel.name).send()
+            .and_then(move |(chat, novel): (i32, String)| {
+                bot_clone.message(chat as i64, novel).send()
                     .map(|_| ())   
                     .map_err(|_| ())
                     .into_future()
@@ -112,6 +110,17 @@ fn main() {
             .set(last_link.eq(novel.link().expect(&format!("Could not get item link. {:?}", &novel))))
             .execute(&connection)
             .expect("Failed to insert or update item");
+
+            {
+                use ww_subscription::schema::subscriptions;
+                let subs = subscriptions::table.filter(subscriptions::novel.eq(&new_novel.name)).load::<Subscription>(&connection).expect("Failed to select subscriptions");
+
+                for sub in subs {
+                    sender
+                        .unbounded_send((sub.chat_id, format!("New chapter released for novel {}.\nLink: {}", new_novel.name, new_novel.last_link)))
+                        .expect(&format!("Failed to send notification to user={} for novel={}", sub.chat_id, sub.novel));
+                }
+            }
         }
 
         thread::sleep(Duration::from_secs(10));
