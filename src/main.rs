@@ -1,17 +1,65 @@
 extern crate ww_subscription;
 extern crate diesel;
 extern crate rss;
+extern crate telebot;
+extern crate tokio;
+extern crate tokio_core;
+extern crate futures;
 
 use ww_subscription::*;
 use ww_subscription::models::*;
-use diesel::prelude::*;
+
 use std::thread;
 use std::time::Duration;
+use std::env;
+
+use telebot::bot;
+use tokio_core::reactor::Core;
+use futures::stream::Stream;
+use futures::sync::mpsc;
+
+use tokio::prelude::*;
+use diesel::prelude::*;
+
+// import all available functions
+use telebot::functions::*;
+
+fn telegram_bot(receiver: mpsc::UnboundedReceiver<(i64, Novel)>) {
+    thread::spawn(move || {
+        let mut lp = Core::new().unwrap();
+        let bot = bot::RcBot::new(lp.handle(), &env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN env var not set"))
+            .update_interval(200);
+
+        let handle = bot.new_cmd("/subscribe")
+            .and_then(move |(bot, msg)| {
+                println!("{:?}", msg);
+                Ok(())
+            });
+
+        bot.register(handle);
+
+        let bot_clone = bot.clone();
+        lp.handle().spawn(receiver
+            .and_then(move |(chat, novel): (i64, Novel)| {
+                bot_clone.message(chat, novel.name).send()
+                    .map(|_| ())   
+                    .map_err(|_| ())
+                    .into_future()
+            })
+            .map_err(|e| panic!("error={:?}", e))
+            .for_each(|_| Ok(())));
+
+        bot.run(&mut lp).unwrap();
+    });
+}
 
 fn main() {
     use ww_subscription::schema::novels::dsl::*;
 
     let connection = establish_connection();
+    let (sender, receiver) = mpsc::unbounded();
+
+    telegram_bot(receiver);
 
     loop {
         let channel = rss::Channel::from_url("https://www.wuxiaworld.com/feed/chapters").expect("Could not fetch RSS feed");
