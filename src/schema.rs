@@ -1,8 +1,15 @@
 table! {
+    novel_history (id) {
+        id -> Int4,
+        novel_id -> Int4,
+        link -> Text,
+    }
+}
+
+table! {
     novels (id) {
         id -> Int4,
         name -> Varchar,
-        last_link -> Text,
     }
 }
 
@@ -14,7 +21,6 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(
-    novels,
-    subscriptions,
-);
+joinable!(novel_history -> novels (novel_id));
+
+allow_tables_to_appear_in_same_query!(novel_history, novels, subscriptions,);

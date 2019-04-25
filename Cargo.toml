@@ -2,6 +2,7 @@
 name = "ww-subscription"
 version = "0.1.0"
 authors = ["Gustavo Aguiar <gugahoa@gmail.com>"]
+edition = "2018"
 
 [lib]
 
@@ -13,3 +14,4 @@ telebot = "0.2.10"
 tokio-core = "0.1.15"
 futures = "0.1.18"
 tokio = "0.1.11"
+rayon = "1.0"
