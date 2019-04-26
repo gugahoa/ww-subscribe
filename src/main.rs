@@ -6,80 +6,12 @@ use std::env;
 use std::thread;
 use std::time::Duration;
 
-use futures::stream::Stream;
 use futures::sync::mpsc;
-use telebot::bot;
-use tokio_core::reactor::Core;
 
 use diesel::prelude::*;
 use rayon::prelude::*;
 use telebot::functions::*;
 use tokio::prelude::*;
-
-fn telegram_bot(receiver: mpsc::UnboundedReceiver<(i32, String)>) {
-    thread::spawn(move || {
-        let mut lp = Core::new().unwrap();
-        let bot = bot::RcBot::new(
-            lp.handle(),
-            &env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN env var not set"),
-        )
-        .update_interval(200);
-
-        let conn = establish_connection();
-
-        let handle = bot.new_cmd("/subscribe").and_then(move |(bot, msg)| {
-            use ww_subscription::schema::subscriptions::dsl::*;
-
-            let text = if let Some(text) = msg.text {
-                text
-            } else {
-                return bot
-                    .message(msg.chat.id, "Expected text, found none".into())
-                    .send();
-            };
-
-            let result = diesel::insert_into(subscriptions)
-                .values(&NewSubscription {
-                    chat_id: msg.chat.id as i32,
-                    novel: &text,
-                })
-                .execute(&conn);
-
-            match result {
-                Ok(_) => {
-                    println!(
-                        "Successfully inserted subscription from chat_id={} to novel={}",
-                        msg.chat.id, text
-                    );
-                    bot.message(msg.chat.id, "Success".into()).send()
-                }
-                Err(e) => {
-                    println!("Failed to insert subscription. err={:?}", e);
-                    bot.message(msg.chat.id, "Fail".into()).send()
-                }
-            }
-        });
-
-        bot.register(handle);
-
-        let bot_clone = bot.clone();
-        lp.handle().spawn(
-            receiver
-                .and_then(move |(chat, novel): (i32, String)| {
-                    bot_clone
-                        .message(chat as i64, novel)
-                        .send()
-                        .map(|_| ())
-                        .map_err(|_| ())
-                        .into_future()
-                })
-                .map_err(|e| panic!("error={:?}", e))
-                .for_each(|_| Ok(())),
-        );
-
-        bot.run(&mut lp).unwrap();
-    });
-}
 
 fn main() {
     let connection = establish_connection();
