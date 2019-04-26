@@ -1,5 +1,5 @@
 # select build image
-FROM rustlang/rust:nightly
+FROM rustlang/rust:nightly as build
 
 # create a new empty shell project
 RUN USER=root cargo new --lib ww_subscription
