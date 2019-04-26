@@ -1,5 +1,5 @@
 [package]
-name = "ww-subscription"
+name = "ww_subscription"
 version = "0.1.0"
 authors = ["Gustavo Aguiar <gugahoa@gmail.com>"]
 edition = "2018"
