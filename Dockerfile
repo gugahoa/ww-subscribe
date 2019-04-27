@@ -17,6 +17,7 @@ RUN rm src/*.rs
 COPY ./src ./src
 
 # build for release
+RUN rm ./target/release/deps/*diesel*
 RUN rm ./target/release/deps/ww_subscription*
 RUN cargo build --release
 
